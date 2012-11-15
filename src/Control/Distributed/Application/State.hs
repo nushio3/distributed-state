@@ -1,4 +1,4 @@
-module Control.Distributed.Service.State (
+module Control.Distributed.Application.State (
   start
   ) where
 
