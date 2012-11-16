@@ -9,6 +9,7 @@ import           Control.Distributed.Process as DP
 import           Control.Distributed.Process.Serializable (Serializable(..))
 import           Control.Concurrent.STM.TVar as STM
 import           Control.Monad
+import           Control.Concurrent (threadDelay)
 import           Control.Monad.STM as STM
 import qualified Data.Map.Strict as Map
 import qualified Data.Binary as Bin
@@ -57,29 +58,48 @@ start label initialState broadcast = do
   stateMap0 <- liftIO $ newTVarIO $ Map.empty
   let ourLabel = salt ++ label
       internal = Internal myState0 stateMap0
-  myPid <- getSelfPid
-  spawnLocal $ do
-    register ourLabel myPid
-    forever $ receiveWait [ match $ onMsgQuery internal
-                          , match $ onMsgUpdate internal
-                          , match $ onMonitor internal]
-  broadcast ourLabel $ MsgQuery myPid
-  let put1 Internal{..} newState = do
+  controllerPid <- spawnLocal $ do
+    controllerPid <- getSelfPid
+    register ourLabel controllerPid
+    forever $ receiveWait
+      [ match $ onMsgQuery  internal
+      , match $ onMsgUpdate internal
+      , match $ onMonitor   internal]
+
+  link controllerPid
+  let broadcastNewState1 Internal{..} = do
+        nid <- getSelfNode
+        x <- liftIO $ atomically $ readTVar myState
+        broadcast ourLabel $ MsgUpdate nid x
+      broadcastNewState = broadcastNewState1 internal
+
+      put1 Internal{..} newState = do
         nid <- getSelfNode
         liftIO $ atomically $ writeTVar myState newState
-        broadcast ourLabel $ MsgUpdate nid newState
+        broadcastNewState
       get1 Internal{..} = liftIO $ atomically $ readTVar myState
       modify1 Internal{..} f = do
         liftIO $ atomically $ modifyTVar myState f
         x <- liftIO $ atomically $ readTVar myState
         nid <- getSelfNode
-        broadcast ourLabel $ MsgUpdate nid x
+        broadcastNewState
       getMap1 Internal{..} =
         liftIO $ atomically $ readTVar stateMap
+
+      notifier = do
+        broadcast ourLabel $ MsgQuery controllerPid
+        broadcastNewState
+
+  liftIO $ threadDelay 1000000
+  spawnLocal $ do
+    notifier >> (liftIO $ threadDelay 2000000)
+    notifier >> (liftIO $ threadDelay 4000000)
+    notifier >> (liftIO $ threadDelay 8000000)
+
   return $ Interface (get1 internal) (put1 internal) (modify1 internal) (getMap1 internal)
 
 onMsgQuery :: (Serializable a) => Internal a -> MsgQuery -> Process ()
-onMsgQuery Internal{..} (MsgQuery pid) = do
+onMsgQuery Internal{..} msg@(MsgQuery pid) = do
   nid <- getSelfNode
   x <- liftIO $ atomically $ readTVar $ myState
   send pid $ MsgUpdate nid x

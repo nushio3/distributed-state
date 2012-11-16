@@ -20,7 +20,7 @@ executable             katocloud
   main-is:             KatoCloud.hs
   build-depends:       base ==4.5.*
                      , distributed-process >= 0.4.0.2
-                     , distributed-process-p2p >= 0.1.0.1
+                     , distributed-process-p2p >= 0.1.0.3
                      , distributed-state    
 
 library

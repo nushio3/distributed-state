@@ -2,7 +2,8 @@ import           Control.Distributed.Process           as DP
 import qualified Control.Distributed.Backend.P2P       as P2P
 import qualified Control.Distributed.Application.State as DSt
 
-import System.Environmend (getArgs)
+import           Control.Monad (forever)
+import           System.Environment (getArgs)
 
 main :: IO ()
 main = do
@@ -17,5 +18,9 @@ mainProcess = do
   forever $ do
     cmd <- liftIO getLine
     case words cmd of
-      "nid" -> getSelfNode >>= liftIO print
-      "ls" -> getMap 
+      "whoami":_   ->  do getSelfNode >>= (liftIO . print)
+                     getSelfPid >>= (liftIO . print)
+      "ls":_    -> DSt.getMap api >>=  (liftIO . print)
+      "my":_    -> DSt.get api >>=  (liftIO . print)
+      "add":x:_ -> DSt.modify api ((read x)+)
+      _ -> liftIO $ putStrLn "unknown command."
