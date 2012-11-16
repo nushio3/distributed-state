@@ -15,6 +15,14 @@ category:            Control
 build-type:          Simple
 cabal-version:       >=1.8
 
+executable             katocloud
+  hs-source-dirs:      tests/
+  main-is:             KatoCloud.hs
+  build-depends:       base ==4.5.*
+                     , distributed-process >= 0.4.0.2
+                     , distributed-process-p2p >= 0.1.0.1
+                     , distributed-state    
+
 library
   exposed-modules:     Control.Distributed.Application.State
   -- other-modules:       
