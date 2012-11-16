@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable, RankNTypes, RecordWildCards #-}
 
 module Control.Distributed.Application.State (
-  start, update
+  start, Interface(..)
   ) where
 
 import           Control.Applicative
@@ -19,7 +19,9 @@ salt = "Control.Distributed.Application.State."
 
 data Interface a =
   Interface
-  { update :: a -> Process ()
+  { get    :: Process a
+  , put    :: a -> Process ()
+  , modify :: (a->a) -> Process ()
   , getMap :: Process (Map.Map NodeId a)
   }
 
@@ -62,13 +64,19 @@ start label initialState broadcast = do
                           , match $ onMsgUpdate internal
                           , match $ onMonitor internal]
   broadcast ourLabel $ MsgQuery myPid
-  let update1 Internal{..} newState = do
+  let put1 Internal{..} newState = do
         nid <- getSelfNode
         liftIO $ atomically $ writeTVar myState newState
         broadcast ourLabel $ MsgUpdate nid newState
+      get1 Internal{..} = liftIO $ atomically $ readTVar myState
+      modify1 Internal{..} f = do
+        liftIO $ atomically $ modifyTVar myState f
+        x <- liftIO $ atomically $ readTVar myState
+        nid <- getSelfNode
+        broadcast ourLabel $ MsgUpdate nid x
       getMap1 Internal{..} =
         liftIO $ atomically $ readTVar stateMap
-  return $ Interface (update1 internal) (getMap1 internal)
+  return $ Interface (get1 internal) (put1 internal) (modify1 internal) (getMap1 internal)
 
 onMsgQuery :: (Serializable a) => Internal a -> MsgQuery -> Process ()
 onMsgQuery Internal{..} (MsgQuery pid) = do
