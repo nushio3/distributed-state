@@ -19,7 +19,7 @@ mainProcess = do
     cmd <- liftIO getLine
     case words cmd of
       "whoami":_   ->  do getSelfNode >>= (liftIO . print)
-                     getSelfPid >>= (liftIO . print)
+                          getSelfPid >>= (liftIO . print)
       "ls":_    -> DSt.getMap api >>=  (liftIO . print)
       "my":_    -> DSt.get api >>=  (liftIO . print)
       "add":x:_ -> DSt.modify api ((read x)+)
